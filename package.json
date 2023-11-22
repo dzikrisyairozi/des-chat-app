@@ -30,6 +30,7 @@
     "axios": "1.6.1",
     "clsx": "^1.2.1",
     "crypto-js": "^4.2.0",
+    "firebase": "^10.6.0",
     "immer": "^9.0.21",
     "lodash.get": "^4.4.2",
     "lucide-react": "^0.121.0",
