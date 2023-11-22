@@ -4,8 +4,8 @@ import { useRouter } from 'next/router';
 import { openGraph } from '@/lib/helper';
 
 const defaultMeta = {
-  title: 'Fil In',
-  siteName: 'filinmovie.com',
+  title: 'DES',
+  siteName: 'Chat App',
   description: 'Filinmovie Design System',
   url: 'https://filinmovie.com',
   type: 'website',
