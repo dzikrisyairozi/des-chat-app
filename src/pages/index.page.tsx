@@ -1,7 +1,6 @@
+import CryptoJS from 'crypto-js';
 import * as React from 'react';
 import { useState } from 'react';
-
-import { desDecrypt, desEncrypt } from '@/lib/des/crypto';
 
 import Layout from '@/components/layout/Layout';
 import UnderlineLink from '@/components/links/UnderlineLink';
@@ -17,30 +16,16 @@ export default function HomePage() {
   const handleEncrypt = (e: { preventDefault: () => void }) => {
     e.preventDefault();
 
-    const numericKey = parseInt(key, 10); // Convert key to a number
-    const numericPlainText = parseInt(plainText, 10); // Convert plainText to a number
-
-    if (isNaN(numericKey) || isNaN(numericPlainText)) {
-      alert('Invalid input: Key and Plain Text should be numeric.');
-      return;
-    }
-
-    const encrypted = desEncrypt(numericPlainText, numericKey);
-    setEncryptedText(encrypted.toString()); // Convert the encrypted number to a string
+    const encrypted = CryptoJS.DES.encrypt(plainText, key).toString();
+    setEncryptedText(encrypted);
   };
 
   const handleDecrypt = (e: { preventDefault: () => void }) => {
     e.preventDefault();
-    const numericKey = parseInt(key, 10);
-    const numericEncryptedText = parseInt(encryptedText, 10);
 
-    if (isNaN(numericKey) || isNaN(numericEncryptedText)) {
-      alert('Invalid input for decryption.');
-      return;
-    }
-
-    const decrypted = desDecrypt(numericEncryptedText, numericKey);
-    setDecryptedText(decrypted.toString());
+    const bytes = CryptoJS.DES.decrypt(encryptedText, key);
+    const originalText = bytes.toString(CryptoJS.enc.Utf8);
+    setDecryptedText(originalText);
   };
 
   return (
@@ -55,14 +40,14 @@ export default function HomePage() {
             </Typography>
 
             <div className='flex flex-col justify-center gap-8 sm:flex-row'>
-              <div className='mt-4 flex flex-col items-center rounded border-2 border-red-600 p-4'>
+              <div className='mt-4 flex w-[360px] flex-col items-center rounded border-2 border-red-600 p-4'>
                 <h1 className='text-lg'>Encryption</h1>
                 <div className='form mt-2'>
                   <div className='flex flex-col'>
                     <label>Plaintext</label>
                     <input
                       className='text-black'
-                      type='number'
+                      type='text'
                       name='plaintext'
                       value={plainText}
                       onChange={(e) => setPlainText(e.target.value)}
@@ -72,7 +57,7 @@ export default function HomePage() {
                     <label>Key</label>
                     <input
                       className='text-black'
-                      type='number'
+                      type='text'
                       name='key'
                       value={key}
                       onChange={(e) => setKey(e.target.value)}
@@ -90,7 +75,7 @@ export default function HomePage() {
                   </div>
                 </div>
               </div>
-              <div className='mt-4 flex flex-col items-center rounded border-2 border-green-600 p-4'>
+              <div className='mt-4 flex w-[360px] flex-col items-center rounded border-2 border-green-600 p-4'>
                 <h1 className='text-lg'>Decryption</h1>
                 <div className='form mt-2'>
                   <div className='flex flex-col'>
@@ -107,7 +92,7 @@ export default function HomePage() {
                     <label>Key</label>
                     <input
                       className='text-black'
-                      type='number'
+                      type='text'
                       name='key'
                       value={key}
                       onChange={(e) => setKey(e.target.value)}
