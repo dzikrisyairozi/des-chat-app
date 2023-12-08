@@ -3,10 +3,13 @@
 import {
   addDoc,
   collection,
+  doc,
+  getDoc,
   onSnapshot,
   orderBy,
   query,
   serverTimestamp,
+  setDoc,
 } from 'firebase/firestore';
 
 import { db } from './config'; // Adjust the path according to your project structure
@@ -37,4 +40,33 @@ export const subscribeToMessages = (callback: (messages: any[]) => void) => {
     }));
     callback(messages);
   });
+};
+
+// Function to store a user's public RSA key
+export const storePublicKey = async (userId: string, publicKey: string) => {
+  try {
+    const userDocRef = doc(db, 'users', userId);
+    await setDoc(userDocRef, { publicKey });
+  } catch (error) {
+    console.error('Error storing public key: ', error);
+  }
+};
+
+// Function to retrieve a user's public RSA key
+export const getUserPublicKey = async (userId: string) => {
+  try {
+    const userDocRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userDocRef);
+
+    if (userDoc.exists()) {
+      const userData = userDoc.data();
+      return userData.publicKey;
+    } else {
+      console.log('User not found');
+      return null;
+    }
+  } catch (error) {
+    console.error('Error fetching user public key: ', error);
+    return null;
+  }
 };

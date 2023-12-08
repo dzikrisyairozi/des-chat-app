@@ -2,8 +2,10 @@
 /* eslint-disable unused-imports/no-unused-vars */
 // auth.ts
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import forge from 'node-forge';
+
+import { storePublicKey } from '@/lib/firebase/chat';
 
 import { auth, db } from './config'; // Ensure db is imported from your Firebase config
 
@@ -31,7 +33,7 @@ export const signInWithGoogle = async () => {
       const { publicKey, privateKey } = generateRSAKeyPair();
 
       // Store public key in Firebase
-      await setDoc(userDocRef, { publicKey });
+      await storePublicKey(user.uid, publicKey);
 
       // Store private key securely on client-side
       localStorage.setItem('privateKey', privateKey);
