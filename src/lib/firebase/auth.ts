@@ -1,11 +1,10 @@
 /* eslint-disable no-console */
-/* eslint-disable unused-imports/no-unused-vars */
+/* eslint-disable unused-imports/no-unused-imports */
 // auth.ts
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { signOut } from 'firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import forge from 'node-forge';
-
-import { storePublicKey } from '@/lib/firebase/chat';
 
 import { auth, db } from './config'; // Ensure db is imported from your Firebase config
 
@@ -24,21 +23,29 @@ export const signInWithGoogle = async () => {
     const result = await signInWithPopup(auth, provider);
     const user = result.user;
 
-    // Check if the user is new or returning
+    // Generate RSA key pair regardless of new or existing user
+    const { publicKey, privateKey } = generateRSAKeyPair();
+
+    // Store/update user information and public key in Firestore
     const userDocRef = doc(db, 'users', user.uid);
-    const userDoc = await getDoc(userDocRef);
+    await setDoc(userDocRef, {
+      name: user.displayName,
+      email: user.email,
+      publicKey,
+      // Add any other user information you want to store
+    });
 
-    if (!userDoc.exists()) {
-      // New user, generate RSA key pair
-      const { publicKey, privateKey } = generateRSAKeyPair();
-
-      // Store public key in Firebase
-      await storePublicKey(user.uid, publicKey);
-
-      // Store private key securely on client-side
-      localStorage.setItem('privateKey', privateKey);
-    }
+    // Store private key securely on client-side
+    localStorage.setItem('privateKey', privateKey);
   } catch (error) {
     console.error('Error during Google sign-in: ', error);
+  }
+};
+
+export const logout = async () => {
+  try {
+    await signOut(auth);
+  } catch (error) {
+    console.error('Error signing out: ', error);
   }
 };
