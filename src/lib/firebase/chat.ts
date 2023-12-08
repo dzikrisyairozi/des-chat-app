@@ -11,6 +11,7 @@ import {
   serverTimestamp,
   setDoc,
 } from 'firebase/firestore';
+import forge from 'node-forge';
 
 import { db } from './config'; // Adjust the path according to your project structure
 
@@ -69,4 +70,22 @@ export const getUserPublicKey = async (userId: string) => {
     console.error('Error fetching user public key: ', error);
     return null;
   }
+};
+
+export const encryptWithPublicKey = (publicKeyPem: string, text: string) => {
+  const publicKey = forge.pki.publicKeyFromPem(publicKeyPem);
+  const encrypted = publicKey.encrypt(text, 'RSA-OAEP');
+  return forge.util.encode64(encrypted);
+};
+
+export const decryptWithPrivateKey = (
+  privateKeyPem: string,
+  encryptedText: string
+) => {
+  const privateKey = forge.pki.privateKeyFromPem(privateKeyPem);
+  const decrypted = privateKey.decrypt(
+    forge.util.decode64(encryptedText),
+    'RSA-OAEP'
+  );
+  return decrypted;
 };
