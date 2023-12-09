@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable unused-imports/no-unused-vars */
 import CryptoJS from 'crypto-js';
+import { useRouter } from 'next/router';
 import * as React from 'react';
 import { useState } from 'react';
 
@@ -10,6 +11,7 @@ import { logout } from '@/lib/firebase/auth';
 import { sendMessage, subscribeToMessages } from '@/lib/firebase/chat';
 import { auth } from '@/lib/firebase/config';
 
+import Button from '@/components/buttons/Button';
 import Layout from '@/components/layout/Layout';
 import UnderlineLink from '@/components/links/UnderlineLink';
 import Seo from '@/components/Seo';
@@ -17,6 +19,8 @@ import Typography from '@/components/typography/Typography';
 
 interface User {
   uid: string;
+  email: string;
+  name: string;
 }
 
 export interface Message {
@@ -36,6 +40,8 @@ export default function HomePage() {
   const [keyWho, setKeyWho] = useState('');
   const [encryptedTextWho, setEncryptedTextWho] = useState('');
   const [decryptedTextWho, setDecryptedTextWho] = useState('');
+
+  const router = useRouter();
 
   const handleEncrypt = (e: { preventDefault: () => void }) => {
     e.preventDefault();
@@ -137,8 +143,10 @@ export default function HomePage() {
 
   if (!user) {
     return (
-      <div>
-        <button onClick={signInWithGoogle}>Sign in with Google</button>
+      <div className='layout flex min-h-screen items-center justify-center'>
+        <Button variant='success' onClick={signInWithGoogle}>
+          Sign in with Google
+        </Button>
       </div>
     );
   }
@@ -153,6 +161,25 @@ export default function HomePage() {
             <Typography as='h1' variant='d2' className='mt-2'>
               Data Encryption Standard Algorithm - Chat App
             </Typography>
+            {user && (
+              <div className='mt-4 flex flex-col'>
+                <p className='text-lg'>{`Logged in as: ${
+                  user.name || user.email
+                }`}</p>{' '}
+                {/* Display user's name or email */}
+                <div className='mt-2 flex justify-center gap-2'>
+                  <Button onClick={logout} variant='danger'>
+                    Logout
+                  </Button>
+                  <Button
+                    onClick={() => router.push('/private-chat')}
+                    variant='primary'
+                  >
+                    Go to Private Chat
+                  </Button>
+                </div>
+              </div>
+            )}
             <section className='mt-16'>
               <div>
                 <div>
@@ -336,16 +363,6 @@ export default function HomePage() {
                 </div>
               </div>
             </div>
-            {user && (
-              <div className='absolute right-4 top-4'>
-                <button
-                  onClick={logout}
-                  className='rounded bg-red-500 px-4 py-2 font-bold text-white hover:bg-red-700'
-                >
-                  Logout
-                </button>
-              </div>
-            )}
             <footer className='absolute bottom-2 text-gray-700'>
               © {new Date().getFullYear()} By{' '}
               <UnderlineLink href=''>

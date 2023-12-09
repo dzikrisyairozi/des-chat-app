@@ -312,9 +312,12 @@ const PrivateChatPage = () => {
 
   return (
     <div className='container mx-auto p-4'>
-      <h1 className='mb-4 text-2xl font-bold'>
-        Private Chat with {otherUserId}
-      </h1>
+      <div>
+        <h1 className='mb-4 text-2xl font-bold'>
+          Private Chat with {otherUserId}
+        </h1>
+      </div>
+
       <div className='mb-4'>
         {messages.map((msg) => (
           <p
