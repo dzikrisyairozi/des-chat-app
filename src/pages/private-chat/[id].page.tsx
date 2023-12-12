@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable unused-imports/no-unused-vars */
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable no-console */
 import CryptoJS from 'crypto-js';
@@ -33,18 +35,30 @@ const PrivateChatPage = () => {
   const [loading, setLoading] = useState(false);
   const [desKey, setDesKey] = useState(''); // Store the decrypted DES key here
   const [isReady, setIsReady] = useState(false);
+  const [encryptedInput, setEncryptedInput] = useState('');
+  const [decryptedOutput, setDecryptedOutput] = useState('');
+  const [plainTextInput, setPlainTextInput] = useState('');
+  const [encryptedOutput, setEncryptedOutput] = useState('');
 
   const otherUserId = router.query.id;
 
-  const initiateChatSession = async (recipientId: string) => {
+  const initiateChatSession = async (
+    recipientId: string,
+    requestDESKey = false
+  ) => {
     if (!auth.currentUser) {
       console.error('No user is currently logged in.');
       return;
     }
-    // Generate a new DES key
-    const desKey = CryptoJS.lib.WordArray.random(128 / 8).toString(
-      CryptoJS.enc.Hex
-    );
+
+    let desKey = localStorage.getItem('desKey');
+    if (!desKey || requestDESKey) {
+      // Generate a new DES key for Client_A
+      desKey = CryptoJS.lib.WordArray.random(128 / 8).toString(
+        CryptoJS.enc.Hex
+      );
+      localStorage.setItem('desKey', desKey);
+    }
 
     // Fetch recipient's public RSA key
     const recipientPublicKey = await fetchPublicKey(recipientId);
@@ -52,16 +66,11 @@ const PrivateChatPage = () => {
     // Encrypt the DES key with the recipient's public key
     const encryptedDESKey = encryptWithPublicKey(recipientPublicKey, desKey);
 
-    // Store the encrypted DES key in Firestore
+    // Send the encrypted DES key to Client_B
     await sendEncryptedDESKey(
       getChatSessionId(auth.currentUser.uid, recipientId),
       encryptedDESKey
     );
-
-    console.log('deskey', desKey);
-    console.log('encryptedDESKey', encryptedDESKey);
-
-    return desKey; // Return the DES key for use in the current session
   };
 
   // Function to fetch a user's public RSA key
@@ -113,6 +122,42 @@ const PrivateChatPage = () => {
     }
   };
 
+  const decryptInputMessage = () => {
+    if (!desKey) {
+      console.error('DES key is missing.');
+      return;
+    }
+
+    try {
+      const decrypted = decryptWithDES(encryptedInput, desKey);
+      // console.log(encryptedInput);
+      // console.log(desKey);
+      // console.log(decrypted);
+      setDecryptedOutput(decrypted as any);
+    } catch (error) {
+      console.error('Error decrypting message:', error);
+      setDecryptedOutput('Failed to decrypt message.');
+    }
+  };
+
+  const encryptInputMessage = () => {
+    if (!desKey) {
+      console.error('DES key is missing.');
+      return;
+    }
+
+    try {
+      const plaintext = encryptWithDES(plainTextInput, desKey);
+      // console.log(plainTextInput);
+      // console.log(desKey);
+      // console.log(plaintext);
+      setEncryptedOutput(plaintext as any);
+    } catch (error) {
+      console.error('Error decrypting message:', error);
+      setEncryptedOutput('Failed to encrypt message.');
+    }
+  };
+
   // Function to store the encrypted DES key in Firestore
   const sendEncryptedDESKey = async (
     chatSessionId: string,
@@ -134,26 +179,42 @@ const PrivateChatPage = () => {
     }
   };
 
-  // Encrypt with DES
-  const encryptWithDES = (
-    message: string | CryptoJS.lib.WordArray,
-    key: string | CryptoJS.lib.WordArray
-  ) => {
-    return CryptoJS.DES.encrypt(message, key).toString();
+  //Call the encrypt API
+  const encryptWithDES = async (message: string, key: string) => {
+    const response = await fetch('/api/encrypt', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ message, key }),
+    });
+
+    const data = await response.json();
+    return data.encryptedMessage;
   };
 
-  // Decrypt with DES
-  const decryptWithDES = (
-    cipherText: string | CryptoJS.lib.CipherParams,
-    key: string | CryptoJS.lib.WordArray
-  ) => {
-    const bytes = CryptoJS.DES.decrypt(cipherText, key);
-    return bytes.toString(CryptoJS.enc.Utf8);
+  //Call the decrypt API
+  const decryptWithDES = async (cipherText: string, key: string) => {
+    const response = await fetch('/api/decrypt', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ cipherText, key }),
+    });
+
+    const data = await response.json();
+    return data.decryptedText;
   };
 
   useEffect(() => {
     const initiateAndSetDESKey = async () => {
+      console.log('initiateAndSetDESKey started');
+
       try {
+        console.log(
+          'Checking user authentication and otherUserId availability'
+        );
         if (!auth.currentUser || !otherUserId) {
           console.error(
             'User not authenticated or otherUserId is not available.'
@@ -162,44 +223,62 @@ const PrivateChatPage = () => {
         }
 
         const recipientId = otherUserId.toString();
+        console.log(`Recipient ID: ${recipientId}`);
         const chatSessionId = getChatSessionId(
           auth.currentUser.uid,
           recipientId
         );
-        let key;
+        console.log(`Chat Session ID: ${chatSessionId}`);
 
-        const existingEncryptedKey = await checkForExistingDESKey(
-          chatSessionId
-        );
-        if (existingEncryptedKey) {
+        let key = localStorage.getItem('desKey');
+        console.log(`Retrieved DES key from localStorage: ${key}`);
+
+        if (!key) {
+          console.log(
+            'No DES key found in localStorage, requesting DES key from Client_A'
+          );
+          await initiateChatSession(recipientId, true);
+          console.log('Requested DES key from Client_A');
+
+          const encryptedKey = await checkForExistingDESKey(chatSessionId);
+          console.log(`Encrypted DES key received: ${encryptedKey}`);
+
           const userPrivateKeyPem = getPrivateKeyForCurrentUser();
+          console.log(
+            `User Private Key: ${userPrivateKeyPem ? 'Found' : 'Not Found'}`
+          );
+
           if (!userPrivateKeyPem) {
             throw new Error('Private key not found.');
           }
-          key = decryptWithPrivateKey(existingEncryptedKey, userPrivateKeyPem);
-        } else {
-          key = await initiateChatSession(recipientId);
+          key = decryptWithPrivateKey(encryptedKey, userPrivateKeyPem);
+          console.log(`Decrypted DES key: ${key}`);
+
+          localStorage.setItem('desKey', key);
+          console.log('Stored DES key in localStorage');
         }
 
-        if (key) {
-          setDesKey(key);
-        } else {
-          throw new Error('Failed to obtain or generate a valid DES key.');
-        }
+        setDesKey(key);
+        console.log('DES key set in state');
       } catch (error) {
         console.error('Error in DES key handling:', error);
       } finally {
         setIsReady(true);
+        console.log('Component is now ready');
       }
     };
 
+    console.log('useEffect triggered');
     if (auth.currentUser && otherUserId) {
+      console.log(
+        'Current user and otherUserId are available, initiating DES key setting'
+      );
       initiateAndSetDESKey();
+    } else {
+      console.log('Current user or otherUserId not available yet');
     }
 
-    return () => {
-      // Clean up logic if necessary
-    };
+    // Other useEffect logic for message subscription can remain here
   }, [otherUserId, auth.currentUser]);
 
   useEffect(() => {
@@ -234,7 +313,7 @@ const PrivateChatPage = () => {
           })
           .filter((msg) => msg !== null);
 
-        setMessages(fetchedMessages as Message[]);
+        setMessages(fetchedMessages as any);
       });
 
       return () => unsubscribe();
@@ -252,12 +331,6 @@ const PrivateChatPage = () => {
       return;
     }
 
-    // console.log('sendMessage called');
-    // console.log('Message:', message.trim());
-    // console.log('Current User:', auth.currentUser);
-    // console.log('Other User ID:', otherUserId);
-    // console.log('DES Key:', desKey);
-
     setLoading(true);
     try {
       const chatSessionId = getChatSessionId(
@@ -271,45 +344,20 @@ const PrivateChatPage = () => {
         'messages'
       );
 
-      const encryptedMessage = encryptWithDES(message, desKey);
+      // Await the encryption result
+      const encryptedMessage = await encryptWithDES(message, desKey);
+
       await addDoc(messagesRef, {
-        text: encryptedMessage,
+        text: encryptedMessage, // Ensure this is the resolved value
         createdAt: serverTimestamp(),
         senderId: auth.currentUser.uid,
       });
-
-      console.log('Message sent successfully!', encryptedMessage);
 
       setMessage('');
     } catch (error) {
       console.error('Error sending message:', error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  // eslint-disable-next-line unused-imports/no-unused-vars
-  const testRSA = () => {
-    try {
-      // Generate a new RSA key pair
-      const keypair = forge.pki.rsa.generateKeyPair(2048);
-      console.log('keypair:', keypair);
-      const publicKeyPem = forge.pki.publicKeyToPem(keypair.publicKey);
-      console.log('publicKeyPem:', publicKeyPem);
-      const privateKeyPem = forge.pki.privateKeyToPem(keypair.privateKey);
-      console.log('privateKeyPem:', privateKeyPem);
-
-      // Encrypt a test message
-      const testMessage = 'Hello, World!';
-      const encrypted = encryptWithPublicKey(publicKeyPem, testMessage);
-      console.log('Encrpted message:', encrypted);
-
-      // Decrypt the message
-      const decrypted = decryptWithPrivateKey(encrypted, privateKeyPem);
-
-      console.log('Decrypted message:', decrypted);
-    } catch (error) {
-      console.error('RSA Test Error:', error);
     }
   };
 
@@ -321,7 +369,7 @@ const PrivateChatPage = () => {
         </h1>
       </div>
 
-      <div className='mb-4'>
+      <div className='my-4 mb-4 rounded border border-gray-200 p-4 shadow-lg'>
         {messages.map((msg) => (
           <p
             key={msg.id}
@@ -349,14 +397,45 @@ const PrivateChatPage = () => {
         >
           Send
         </button>
-        {/* <button
-          className='mt-2 rounded bg-blue-500 px-4 py-2 font-bold text-white hover:bg-blue-700'
-          onClick={testRSA}
-          disabled={loading}
-        >
-          Test RSA
-        </button> */}
       </div>
+      {/* <div className='my-4 rounded border border-gray-200 p-4 shadow-lg'>
+        <input
+          type='text'
+          value={encryptedInput}
+          onChange={(e) => setEncryptedInput(e.target.value)}
+          placeholder='Enter encrypted message'
+          className='mb-2 w-full rounded border border-gray-300 p-2 text-black'
+        />
+        <button
+          onClick={decryptInputMessage}
+          className='rounded bg-blue-500 px-4 py-2 font-bold text-white hover:bg-blue-700'
+        >
+          Decrypt Message
+        </button>
+        <div className='mt-2 rounded border border-gray-200 bg-gray-100 p-2 text-black'>
+          Decrypted Message:{' '}
+          <span className='font-semibold text-black'>{decryptedOutput}</span>
+        </div>
+      </div> */}
+      {/* <div className='my-4 rounded border border-gray-200 p-4 shadow-lg'>
+        <input
+          type='text'
+          value={plainTextInput}
+          onChange={(e) => setPlainTextInput(e.target.value)}
+          placeholder='Enter plain text message'
+          className='mb-2 w-full rounded border border-gray-300 p-2 text-black'
+        />
+        <button
+          onClick={encryptInputMessage}
+          className='rounded bg-blue-500 px-4 py-2 font-bold text-white hover:bg-blue-700'
+        >
+          Encrypt Message
+        </button>
+        <div className='mt-2 rounded border border-gray-200 bg-gray-100 p-2 text-black'>
+          Encrypted Message:{' '}
+          <span className='font-semibold text-black'>{encryptedOutput}</span>
+        </div>
+      </div> */}
     </div>
   );
 };
