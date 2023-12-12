@@ -64,6 +64,7 @@ export const signInWithGoogle = async () => {
       });
 
       localStorage.setItem('privateKey', privateKey);
+      // console.log('Private key saved to local storage:', privateKey);
     } else {
       const userData = userDoc.data();
       if (userData && userData.publicKey) {

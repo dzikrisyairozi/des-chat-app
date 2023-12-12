@@ -155,7 +155,7 @@ export default function HomePage() {
     <Layout>
       <Seo templateTitle='DES' />
 
-      <main>
+      <main className='overflow-hidden'>
         <section className=''>
           <div className='layout relative flex min-h-screen flex-col py-12 text-center'>
             <Typography as='h1' variant='d2' className='mt-2'>

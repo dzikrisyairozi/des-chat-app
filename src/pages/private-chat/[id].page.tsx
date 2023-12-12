@@ -58,6 +58,9 @@ const PrivateChatPage = () => {
       encryptedDESKey
     );
 
+    console.log('deskey', desKey);
+    console.log('encryptedDESKey', encryptedDESKey);
+
     return desKey; // Return the DES key for use in the current session
   };
 
@@ -101,7 +104,7 @@ const PrivateChatPage = () => {
     } catch (error) {
       console.error(
         'Error in RSA decryption. Encrypted key:',
-        encryptedKey,
+        // encryptedKey,
         'Error:',
         error
       );
@@ -200,7 +203,7 @@ const PrivateChatPage = () => {
   }, [otherUserId, auth.currentUser]);
 
   useEffect(() => {
-    if (isReady && desKey && auth.currentUser && otherUserId) {
+    if (isReady && auth.currentUser && otherUserId) {
       const chatSessionId = getChatSessionId(
         auth.currentUser.uid,
         otherUserId.toString()
@@ -239,7 +242,7 @@ const PrivateChatPage = () => {
   }, [isReady, desKey, otherUserId, auth.currentUser]);
 
   const sendMessage = async () => {
-    if (!isReady || !desKey) {
+    if (!isReady) {
       console.error('Component is not ready or DES key is missing.');
       return;
     }
